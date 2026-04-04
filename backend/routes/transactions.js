@@ -10,16 +10,18 @@ router.post('/borrow', protect, async (req, res) => {
   try {
     const { bookId } = req.body;
 
-    // Check if book exists
     const book = await Book.findById(bookId);
     if (!book) return res.status(404).json({ message: 'Book not found' });
     if (book.availableCopies <= 0) return res.status(400).json({ message: 'No copies available' });
 
-    // Check if user already borrowed this book
-    const existing = await Transaction.findOne({ userId: req.user._id, bookId, status: 'active' });
-    if (existing) return res.status(400).json({ message: 'You already have this book' });
+    // Check if user already has a pending or active borrow for this book
+    const existing = await Transaction.findOne({
+      userId: req.user._id,
+      bookId,
+      status: { $in: ['active', 'pending'] }
+    });
+    if (existing) return res.status(400).json({ message: 'You already have a pending or active request for this book' });
 
-    // Create transaction
     const transaction = await Transaction.create({
       userId: req.user._id,
       bookId,
@@ -28,7 +30,6 @@ router.post('/borrow', protect, async (req, res) => {
       status: 'pending'
     });
 
-    // Populate transaction for response
     await transaction.populate('bookId', 'title author category');
     res.status(201).json({ message: 'Borrow request sent!', transaction });
 
@@ -36,7 +37,6 @@ router.post('/borrow', protect, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
 
 // Return book
 router.post('/return', protect, async (req, res) => {
@@ -68,24 +68,24 @@ router.post('/return', protect, async (req, res) => {
       const nextUserId = book.reservationQueue.shift();
       const issueDate = new Date();
       const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-      await Transaction.create({ userId: nextUserId, bookId: book._id, issueDate, dueDate });
+      await Transaction.create({ userId: nextUserId, bookId: book._id, issueDate, dueDate, status: 'active' });
       book.availableCopies -= 1;
       book.borrowCount += 1;
     }
-    await book.save();
 
+    await book.save();
     res.json({ message: `Book returned. Fine: ₹${fine}`, fine, transaction });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Get user's active transactions
+// Get user's transactions
 router.get('/my', protect, async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.user._id })
-      .populate('bookId', 'title author category coverColor')
-      .sort({ issueDate: -1 });
+      .populate('bookId', 'title author category coverColor coverImage')
+      .sort({ createdAt: -1 });
     res.json(transactions);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -98,13 +98,13 @@ router.get('/all', protect, librarian, async (req, res) => {
     const transactions = await Transaction.find()
       .populate('userId', 'name email')
       .populate('bookId', 'title author')
-      .sort({ issueDate: -1 });
+      .sort({ createdAt: -1 });
     res.json(transactions);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-//new features
+
 // Approve borrow request (librarian only)
 router.post('/approve/:id', protect, librarian, async (req, res) => {
   try {
@@ -113,41 +113,55 @@ router.post('/approve/:id', protect, librarian, async (req, res) => {
     if (transaction.status !== 'pending') return res.status(400).json({ message: 'Not a pending request' });
 
     const book = await Book.findById(transaction.bookId);
-if (book.availableCopies <= 0) 
-  return res.status(400).json({ message: 'No copies available' });
+    if (!book) return res.status(404).json({ message: 'Book not found' });
 
-const issueDate = new Date();
-const isDemo = false; 
+    // ✅ Check copies at approval time
+    if (book.availableCopies <= 0)
+      return res.status(400).json({ message: 'No copies available — cannot approve' });
 
-transaction.dueDate = isDemo
-  ? new Date(Date.now() + 1 * 60 * 1000) // 1 min
-  : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+    const issueDate = new Date();
+    const isDemo = false;
 
-transaction.status = 'active';
-transaction.issueDate = issueDate;
+    transaction.issueDate = issueDate;
+    transaction.dueDate = isDemo
+      ? new Date(Date.now() + 1 * 60 * 1000)          // 1 min for testing
+      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+    transaction.status = 'active';
+    await transaction.save();
 
-await transaction.save();
+    // ✅ Decrement copies and increment borrowCount — THIS WAS MISSING
+    book.availableCopies -= 1;
+    book.borrowCount += 1;
+    await book.save();
 
+    // Add to reading history
     await User.findByIdAndUpdate(transaction.userId, {
       $addToSet: { readingHistory: transaction.bookId }
     });
 
-    // update favoriteGenre
-    const allTransactions = await Transaction.find({ userId: transaction.userId }).populate('bookId');
+    // Update favoriteGenre based on most borrowed category
+    const allTransactions = await Transaction.find({
+      userId: transaction.userId,
+      status: { $in: ['active', 'returned'] }
+    }).populate('bookId', 'category');
+
     const catCount = {};
     allTransactions.forEach(t => {
-      if (t.bookId && t.bookId.category) {
+      if (t.bookId?.category) {
         catCount[t.bookId.category] = (catCount[t.bookId.category] || 0) + 1;
       }
     });
     const topGenre = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0];
-    await User.findByIdAndUpdate(transaction.userId, { favoriteGenre: topGenre });
+    if (topGenre) {
+      await User.findByIdAndUpdate(transaction.userId, { favoriteGenre: topGenre });
+    }
 
     res.json({ message: 'Borrow request approved!', transaction });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 // Reject borrow request (librarian only)
 router.post('/reject/:id', protect, librarian, async (req, res) => {
   try {
