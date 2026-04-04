@@ -50,17 +50,7 @@ const Register = () => {
             <input className="input" type="password" placeholder="Min. 6 characters"
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required minLength={6} />
           </div>
-          <div className="form-group">
-  <label className="form-label">Register As</label>
-  <select
-    className="input"
-    value={form.role}
-    onChange={e => setForm({ ...form, role: e.target.value })}
-  >
-    <option value="user">User</option>
-    <option value="librarian">Admin (Librarian)</option>
-  </select>
-</div>
+        
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '14px' }} disabled={loading}>
             {loading ? 'Creating account...' : 'Create Account'}
           </button>

@@ -67,7 +67,7 @@ router.post('/return', protect, async (req, res) => {
     if (book.reservationQueue.length > 0) {
       const nextUserId = book.reservationQueue.shift();
       const issueDate = new Date();
-      const dueDate = new Date(issueDate.getTime() + 1 * 60 * 1000);
+      const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       await Transaction.create({ userId: nextUserId, bookId: book._id, issueDate, dueDate });
       book.availableCopies -= 1;
       book.borrowCount += 1;
@@ -113,19 +113,20 @@ router.post('/approve/:id', protect, librarian, async (req, res) => {
     if (transaction.status !== 'pending') return res.status(400).json({ message: 'Not a pending request' });
 
     const book = await Book.findById(transaction.bookId);
-    if (book.availableCopies <= 0) return res.status(400).json({ message: 'No copies available' });
+if (book.availableCopies <= 0) 
+  return res.status(400).json({ message: 'No copies available' });
 
-    const issueDate = new Date();
-    const dueDate = new Date(issueDate.getTime() + 1 * 60 * 1000);
+const issueDate = new Date();
+const isDemo = false; 
 
-    transaction.status = 'active';
-    transaction.issueDate = issueDate;
-    transaction.dueDate = dueDate;
-    await transaction.save();
+transaction.dueDate = isDemo
+  ? new Date(Date.now() + 1 * 60 * 1000) // 1 min
+  : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
 
-    book.availableCopies -= 1;
-    book.borrowCount += 1;
-    await book.save();
+transaction.status = 'active';
+transaction.issueDate = issueDate;
+
+await transaction.save();
 
     await User.findByIdAndUpdate(transaction.userId, {
       $addToSet: { readingHistory: transaction.bookId }
