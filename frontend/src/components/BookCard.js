@@ -27,14 +27,43 @@ const BookCard = ({ book, onBorrow, onReserve, userTransactions = [] }) => {
   return (
     <div className="card" style={{ overflow: 'hidden', cursor: 'pointer' }}
       onClick={() => navigate(`/books/${book._id}`)}>
+
+      {/* ✅ Removed minHeight override — let aspect-ratio: 2/3 from CSS control height */}
+      {/* ✅ Removed padding override — CSS class handles it */}
+      {/* ✅ background only set when no coverImage */}
       <div
         className="book-cover"
-        style={{ background: color, minHeight: '200px' }}
+        style={{ background: book.coverImage ? 'none' : color }}
         onClick={e => { e.stopPropagation(); navigate(`/books/${book._id}`); }}
       >
-        <div className="book-cover-spine" />
-        <span style={{ position: 'relative', zIndex: 1, padding: '0 12px' }}>{book.title}</span>
+        {book.coverImage ? (
+          // ✅ position:absolute fill — works reliably inside aspect-ratio container
+          <img
+            src={book.coverImage}
+            alt={book.title}
+            style={{
+              position: 'absolute',
+              top: 0, left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: 8,
+              display: 'block'
+            }}
+            onError={e => {
+              e.target.style.display = 'none';
+            }}
+          />
+        ) : (
+          <>
+            <div className="book-cover-spine" />
+            <span style={{ position: 'relative', zIndex: 1, padding: '0 12px' }}>
+              {book.title}
+            </span>
+          </>
+        )}
       </div>
+
       <div style={{ padding: '14px' }}>
         <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: '0.95rem', marginBottom: 4, color: 'var(--dark)', lineHeight: 1.3 }}>
           {book.title}

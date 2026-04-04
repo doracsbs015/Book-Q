@@ -4,13 +4,13 @@ import { useToast } from '../context/ToastContext';
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-const CATEGORIES = ['Fiction', 'Classic', 'Non-Fiction', 'Dystopia', 'Self-Help', 'Science Fiction', 'Fantasy', 'Psychology', 'Finance', 'Science', 'Business', 'History', 'Biography', 'Romance', 'Mystery'];
+const CATEGORIES = ['Fiction', 'Classic', 'Non-Fiction', 'Romance novel', 'Self-Help', 'Science Fiction', 'Fantasy', 'Psychology', 'Finance', 'Science', 'Business', 'History', 'Biography', 'Dystopia', 'Mystery'];
 
-const emptyBook = { title: '', author: '', category: '', description: '', totalCopies: 1, availableCopies: 1 };
+const emptyBook = { title: '', author: '', category: '', description: '', coverImage: '', totalCopies: 1, availableCopies: 1 };
 
 const AdminDashboard = () => {
   const { addToast } = useToast();
-  const [tab, setTab] = useState('books');
+  const [tab, setTab] = useState('pending');
   const [books, setBooks] = useState([]);
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -72,15 +72,40 @@ const AdminDashboard = () => {
     } catch (err) { addToast(err.response?.data?.message || 'Failed', 'error'); }
   };
 
+  const handleApprove = async (transactionId) => {
+    try {
+      await axios.post(`/api/transactions/approve/${transactionId}`);
+      addToast('Borrow request approved!', 'success');
+      fetchAll();
+    } catch (err) { addToast(err.response?.data?.message || 'Failed', 'error'); }
+  };
+
+  const handleReject = async (transactionId) => {
+    try {
+      await axios.post(`/api/transactions/reject/${transactionId}`);
+      addToast('Request rejected', 'success');
+      fetchAll();
+    } catch (err) { addToast(err.response?.data?.message || 'Failed', 'error'); }
+  };
+
   const openEdit = (book) => {
     setEditBook(book);
-    setForm({ title: book.title, author: book.author, category: book.category, description: book.description || '', totalCopies: book.totalCopies, availableCopies: book.availableCopies });
+    setForm({
+      title: book.title,
+      author: book.author,
+      category: book.category,
+      description: book.description || '',
+      coverImage: book.coverImage || '',
+      totalCopies: book.totalCopies,
+      availableCopies: book.availableCopies
+    });
     setShowAddModal(true);
   };
 
   const totalFines = transactions.reduce((s, t) => s + (t.fineAmount || 0), 0);
   const activeCount = transactions.filter(t => t.status === 'active' || t.status === 'overdue').length;
   const overdueCount = transactions.filter(t => t.status === 'overdue').length;
+  const pendingCount = transactions.filter(t => t.status === 'pending').length;
 
   const filteredBooks = books.filter(b =>
     b.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -101,23 +126,30 @@ const AdminDashboard = () => {
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: 28 }}>
         {[
-          { label: 'Total Books', value: books.length, icon: '📚' },
-          { label: 'Total Members', value: users.length, icon: '👥' },
-          { label: 'Active Borrows', value: activeCount, icon: '📖' },
-          { label: 'Overdue', value: overdueCount, icon: '⚠️', alert: overdueCount > 0 },
-          { label: 'Total Fines', value: `₹${totalFines}`, icon: '💰', alert: totalFines > 0 },
+          { label: 'Total Books', value: books.length },
+          { label: 'Total Members', value: users.length },
+          { label: 'Pending Requests', value: pendingCount, alert: pendingCount > 0 },
+          { label: 'Active Borrows', value: activeCount },
+          { label: 'Overdue', value: overdueCount, alert: overdueCount > 0 },
+          { label: 'Total Fines', value: `₹${totalFines}`, alert: totalFines > 0 },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ border: s.alert ? '1.5px solid #f59e0b' : undefined }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{s.icon}</div>
             <div className="stat-value" style={{ color: s.alert ? '#d97706' : undefined }}>{s.value}</div>
             <div className="stat-label">{s.label}</div>
           </div>
         ))}
       </div>
 
+      {/* Pending alert banner */}
+      {pendingCount > 0 && (
+        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 16px', marginBottom: 20, color: '#92400e', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span><strong>{pendingCount} borrow request(s) waiting for your approval.</strong> Check the Pending tab.</span>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--purple-50)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
-        {[['books', '📚 Books'], ['users', '👥 Users'], ['transactions', '📋 Transactions'], ['fines', '💰 Fines']].map(([key, label]) => (
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--purple-50)', padding: 4, borderRadius: 10, width: 'fit-content', flexWrap: 'wrap' }}>
+        {['pending', 'books', 'users', 'transactions', 'fines'].map(key => (
           <button key={key} onClick={() => setTab(key)}
             className="btn btn-sm"
             style={{
@@ -125,9 +157,47 @@ const AdminDashboard = () => {
               color: tab === key ? 'white' : 'var(--purple-700)',
               boxShadow: tab === key ? '0 2px 12px rgba(124,58,237,0.3)' : 'none',
             }}
-          >{label}</button>
+          >{key.charAt(0).toUpperCase() + key.slice(1)}</button>
         ))}
       </div>
+
+      {/* Pending Tab */}
+      {tab === 'pending' && (
+        <div className="table-container card" style={{ padding: 0 }}>
+          <table>
+            <thead>
+              <tr><th>User</th><th>Book</th><th>Requested</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {transactions.filter(t => t.status === 'pending').length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 8 }}>✅</div>
+                    No pending requests
+                  </td>
+                </tr>
+              ) : (
+                transactions.filter(t => t.status === 'pending').map(t => (
+                  <tr key={t._id}>
+                    <td>
+                      <strong>{t.userId?.name || 'Unknown'}</strong><br />
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t.userId?.email}</span>
+                    </td>
+                    <td><strong>{t.bookId?.title || 'Unknown'}</strong></td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{formatDate(t.createdAt)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-success btn-sm" onClick={() => handleApprove(t._id)}>✅ Approve</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleReject(t._id)}>❌ Reject</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Books Tab */}
       {tab === 'books' && (
@@ -147,11 +217,17 @@ const AdminDashboard = () => {
           <div className="table-container card" style={{ padding: 0 }}>
             <table>
               <thead>
-                <tr><th>Title</th><th>Author</th><th>Category</th><th>Total</th><th>Available</th><th>Borrowed</th><th>Actions</th></tr>
+                <tr><th>Cover</th><th>Title</th><th>Author</th><th>Category</th><th>Total</th><th>Available</th><th>Borrowed</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {filteredBooks.map(b => (
                   <tr key={b._id}>
+                    <td>
+                      {b.coverImage
+                        ? <img src={b.coverImage} alt={b.title} style={{ width: 36, height: 48, objectFit: 'cover', borderRadius: 4 }} />
+                        : <div style={{ width: 36, height: 48, background: 'var(--purple-200)', borderRadius: 4 }} />
+                      }
+                    </td>
                     <td><strong>{b.title}</strong></td>
                     <td style={{ color: 'var(--text-secondary)' }}>{b.author}</td>
                     <td><span className="badge badge-category">{b.category}</span></td>
@@ -180,7 +256,7 @@ const AdminDashboard = () => {
       {tab === 'users' && (
         <div className="table-container card" style={{ padding: 0 }}>
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Books Read</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Favourite Genre</th><th>Joined</th><th>Books Read</th></tr></thead>
             <tbody>
               {users.map(u => (
                 <tr key={u._id}>
@@ -193,6 +269,12 @@ const AdminDashboard = () => {
                     </div>
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
+                  <td>
+                    {u.favoriteGenre
+                      ? <span className="badge badge-category">{u.favoriteGenre}</span>
+                      : <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>—</span>
+                    }
+                  </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{formatDate(u.createdAt)}</td>
                   <td>{u.readingHistory?.length || 0}</td>
                 </tr>
@@ -208,7 +290,7 @@ const AdminDashboard = () => {
           <table>
             <thead><tr><th>User</th><th>Book</th><th>Issued</th><th>Due</th><th>Status</th><th>Fine</th><th>Action</th></tr></thead>
             <tbody>
-              {transactions.map(t => (
+              {transactions.filter(t => t.status !== 'pending').map(t => (
                 <tr key={t._id}>
                   <td>{t.userId?.name || 'Unknown'}</td>
                   <td><strong>{t.bookId?.title || 'Unknown'}</strong></td>
@@ -276,6 +358,14 @@ const AdminDashboard = () => {
                   <input className="input" type={type} value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} required={key !== 'description'} />
                 </div>
               ))}
+              <div className="form-group">
+                <label className="form-label">Cover Image URL (optional)</label>
+                <input className="input" type="text" placeholder="https://..."
+                  value={form.coverImage} onChange={e => setForm({ ...form, coverImage: e.target.value })} />
+                {form.coverImage && (
+                  <img src={form.coverImage} alt="preview" style={{ width: 60, height: 80, objectFit: 'cover', borderRadius: 6, marginTop: 8 }} />
+                )}
+              </div>
               <div className="form-group">
                 <label className="form-label">Category</label>
                 <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} required>

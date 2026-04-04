@@ -7,7 +7,7 @@ const transactionSchema = new mongoose.Schema({
   dueDate: { type: Date, required: true },
   returnDate: { type: Date, default: null },
   fineAmount: { type: Number, default: 0 },
-  status: { type: String, enum: ['active', 'returned', 'overdue'], default: 'active' }
+  status: { type: String, enum: ['pending', 'active', 'returned', 'overdue'], default: 'active' }
 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

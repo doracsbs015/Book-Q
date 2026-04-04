@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book');
+const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { protect, librarian } = require('../middleware/auth');
 
@@ -48,36 +49,36 @@ router.get('/trending', async (req, res) => {
   }
 });
 
+
 // Recommendations for logged-in user
 router.get('/recommendations', protect, async (req, res) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user._id }).populate('bookId');
-    if (!transactions.length) {
-      const popular = await Book.find().sort({ borrowCount: -1 }).limit(6);
+    const user = await User.findById(req.user._id);
+
+    // No favorite genre yet → return top 3 trending
+    if (!user.favoriteGenre) {
+      const popular = await Book.find().sort({ borrowCount: -1 }).limit(3);
       return res.json(popular);
     }
 
-    // Count categories
-    const catCount = {};
-    transactions.forEach(t => {
-      if (t.bookId && t.bookId.category) {
-        catCount[t.bookId.category] = (catCount[t.bookId.category] || 0) + 1;
-      }
-    });
-    const topCategory = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0];
-    const borrowedIds = transactions.map(t => t.bookId?._id).filter(Boolean);
-
+    // Has favorite genre → recommend from that genre, exclude already borrowed
+    const borrowedIds = await Transaction.find({ userId: req.user._id }).distinct('bookId');
     const recs = await Book.find({
-      category: topCategory,
+      category: user.favoriteGenre,
       _id: { $nin: borrowedIds }
     }).limit(6);
+
+    // If no books left in that genre, fallback to trending
+    if (recs.length === 0) {
+      const popular = await Book.find({ _id: { $nin: borrowedIds } }).sort({ borrowCount: -1 }).limit(3);
+      return res.json(popular);
+    }
 
     res.json(recs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 // People also borrowed
 router.get('/:id/also-borrowed', protect, async (req, res) => {
   try {

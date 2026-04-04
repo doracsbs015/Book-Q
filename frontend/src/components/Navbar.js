@@ -16,7 +16,7 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-brand">Book<span>Q</span></Link>
+      <Link to="/" className="navbar-brand">நூலகத்<span>தோழன்</span></Link>
       <div className="nav-links">
         {user ? (
           <>

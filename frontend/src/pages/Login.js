@@ -29,8 +29,8 @@ const Login = () => {
       <div className="auth-card">
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           
-          <h1 className="auth-title">Welcome Back</h1>
-          <p className="auth-subtitle">Sign in to your BookQ account</p>
+          <h1 className="auth-title">Welcome Back </h1>
+          <p className="auth-subtitle">Sign in to your நூலகத்தோழன் account</p>
         </div>
 
     

@@ -4,7 +4,7 @@ import BookCard from '../components/BookCard';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const CATEGORIES = ['All', 'Fiction', 'Classic', 'Non-Fiction', 'Dystopia', 'Self-Help', 'Science Fiction', 'Fantasy', 'Psychology', 'Finance', 'Science', 'Business'];
+const CATEGORIES = ['All', 'Fiction', 'Classic', 'Non-Fiction', 'Romance novel', 'Self-Help', 'Science Fiction', 'Fantasy', 'Psychology', 'Finance', 'Science', 'Business'];
 
 const Books = () => {
   const { user } = useAuth();
@@ -47,7 +47,7 @@ const Books = () => {
     if (!user) { addToast('Please login to borrow books', 'error'); return; }
     try {
       await axios.post('/api/transactions/borrow', { bookId });
-      addToast('Book borrowed successfully! Due in 1 minute.', 'success');
+      addToast('Borrow request sent! Awaiting librarian approval.', 'success');
       fetchBooks();
       const res = await axios.get('/api/transactions/my');
       setUserTransactions(res.data);

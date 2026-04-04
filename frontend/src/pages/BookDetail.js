@@ -50,7 +50,7 @@ const BookDetail = () => {
     if (!user) { addToast('Please login to borrow', 'error'); return; }
     try {
       await axios.post('/api/transactions/borrow', { bookId: id });
-      addToast('Book borrowed! Due in 14 days.', 'success');
+      addToast('Borrow request sent! Awaiting librarian approval.', 'success');
       const res = await axios.get(`/api/books/${id}`);
       setBook(res.data);
       const txn = await axios.get('/api/transactions/my');
@@ -88,12 +88,44 @@ const BookDetail = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 40, marginBottom: 48 }}>
         {/* Cover */}
-        <div>
-          <div className="book-cover" style={{ background: color, minHeight: '380px', fontSize: '1.1rem', borderRadius: 16, boxShadow: '0 12px 40px rgba(124,58,237,0.3)' }}>
-            <div className="book-cover-spine" />
-            <span style={{ position: 'relative', zIndex: 1, padding: '0 20px' }}>{book.title}</span>
-          </div>
-        </div>
+<div>
+  <div
+    className="book-cover"
+    style={{
+      background: book.coverImage ? 'none' : color,
+      minHeight: '380px',
+      fontSize: '1.1rem',
+      borderRadius: 16,
+      boxShadow: '0 12px 40px rgba(124,58,237,0.3)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}
+  >
+    {book.coverImage ? (
+      <img
+        src={book.coverImage}
+        alt={book.title}
+        style={{
+          position: 'absolute',
+          top: 0, left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          borderRadius: 16,
+          display: 'block'
+        }}
+        onError={e => {
+          e.target.style.display = 'none';
+        }}
+      />
+    ) : (
+      <>
+        <div className="book-cover-spine" />
+        <span style={{ position: 'relative', zIndex: 1, padding: '0 20px' }}>{book.title}</span>
+      </>
+    )}
+  </div>
+</div>
 
         {/* Info */}
         <div>
@@ -109,10 +141,10 @@ const BookDetail = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
             {[
-              ['📚 Total Copies', book.totalCopies],
-              ['✅ Available', book.availableCopies],
-              ['🔥 Times Borrowed', book.borrowCount],
-              ['👥 In Queue', book.reservationQueue?.length || 0],
+              [' Total Copies', book.totalCopies],
+              [' Available', book.availableCopies],
+              [' Times Borrowed', book.borrowCount],
+              [' In Queue', book.reservationQueue?.length || 0],
             ].map(([label, val]) => (
               <div key={label} className="stat-card" style={{ padding: '14px 18px' }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>

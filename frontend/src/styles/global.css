@@ -161,6 +161,7 @@ select.input { cursor: pointer; }
   font-weight: 600;
   position: relative;
   overflow: hidden;
+  
 }
 .book-cover::before {
   content: '';

@@ -6,6 +6,7 @@ const bookSchema = new mongoose.Schema({
   category: { type: String, required: true, trim: true },
   description: { type: String, default: '' },
   isbn: { type: String, default: '' },
+  coverImage: { type: String, default: '' },
   coverColor: { type: String, default: '#7c3aed' },
   totalCopies: { type: Number, default: 1 },
   availableCopies: { type: Number, default: 1 },

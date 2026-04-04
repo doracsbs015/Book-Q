@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'librarian'], default: 'user' },
+  favoriteGenre: { type: String, default: null },
   borrowedBooks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }],
   readingHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Book' }],
   createdAt: { type: Date, default: Date.now }

@@ -2,9 +2,19 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cron = require('node-cron');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 
 // Middleware
 app.use(cors());
@@ -21,12 +31,9 @@ app.use('/api/books', require('./routes/books'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/users', require('./routes/users'));
 
-// Cron Job: Calculate fines daily at midnight
-// cron.schedule('0 0 * * *', async () => {
-//   console.log(' Running daily fine calculation...');
-//   const { calculateFines } = require('./utils/fineCalculator');
-//   await calculateFines();
-// });
+// Socket.io chat
+require('./socket/chatHandler')(io);
+
 cron.schedule('* * * * *', async () => {
   const { calculateFines } = require('./utils/fineCalculator');
   await calculateFines();
@@ -35,4 +42,4 @@ cron.schedule('* * * * *', async () => {
 app.get('/', (req, res) => res.json({ message: 'Digital Library API running' }));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
