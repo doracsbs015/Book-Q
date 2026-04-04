@@ -1,212 +1,109 @@
-# 📚 LibraryOS — Digital Library System
+# Noolaga Thozhan — ShelfMate
 
-A full-stack MERN application that digitizes a physical library. Built with MongoDB, Express.js, React.js, and Node.js.
+> "ஒரு சிறந்த புத்தகம் நூறு நல்ல நண்பர்களுக்குச் சமம். ஆனால், ஒரு நல்ல நண்பன் ஒரு நூலகத்திற்கே சமம்!"
+>
+> "One good book is equal to a hundred good friends. But one good friend is equal to a whole library."
+>
+> — Dr. A.P.J. Abdul Kalam / டாக்டர் ஏ.பி.ஜே. அப்துல் கலாம்
 
----
+A smart digital library where you don't just borrow books — you find people who read the same ones.
 
-## 🎨 Features
-
-- **Lilac/Purple gradient theme** — elegant, professional UI
-- **JWT Authentication** — secure login for Users and Librarians
-- **Book Management** — add, edit, delete, search books
-- **Borrow & Return System** — with due dates (14 days)
-- **Fine Calculation** — ₹5/day via automated cron job
-- **Reservation Queue** — join waitlist when books are unavailable
-- **AI Recommendations** — based on borrowing history (no external APIs)
-- **People Also Borrowed** — collaborative filtering
-- **Trending Books** — most borrowed books
-- **Reading History** — track all previously borrowed books
-- **Librarian Admin Panel** — manage everything in one place
+[Live Demo](https://book-q-psi.vercel.app/) · [Demo Video](https://drive.google.com/file/d/15MgIYyF0I6KuhrWxKHnVY5-bhqB3sFhp/view?usp=sharing)
 
 ---
 
-## 🚀 Quick Start
+## What it does
 
-### Prerequisites
-- **Node.js** v16 or higher
-- **MongoDB** running locally on `mongodb://localhost:27017`
-  - Install MongoDB Community: https://www.mongodb.com/try/download/community
-  - Or use MongoDB Atlas (update MONGO_URI in backend/.env)
+Most library apps stop at borrow and return. This one goes further.
 
-### Step 1 — Install Dependencies
+There are two roles — **user** and **librarian**. Users browse the collection, request books, track their borrows, and get fined automatically if they're late. Librarians handle approvals, rejections, and returns from a dedicated admin panel.
 
-Open **two separate terminals** in VS Code.
+When a book has no copies left, users can join a reservation queue. The moment someone returns it, the next person in line gets auto-assigned — no manual intervention needed.
 
-**Terminal 1 — Backend:**
+On top of that, the app tracks what each user borrows and builds a reading profile. That profile powers book recommendations, and also connects users with other readers who share the same taste. They can then chat with each other in real time — messages are stored in MongoDB so nothing disappears on a server restart.
+
+---
+
+## Stack
+
+- **Frontend** — React.js, deployed on Vercel
+- **Backend** — Node.js + Express.js, deployed on Render
+- **Database** — MongoDB Atlas
+- **Auth** — JWT with role-based access (user / librarian)
+- **Real-time** — Socket.io
+- **Scheduling** — node-cron for automatic fine calculation
+
+---
+
+## Folder Structure
+```
+backend/
+├── server.js
+├── models/          — User, Book, Transaction, Message
+├── routes/          — auth, books, transactions, users
+├── middleware/      — JWT protect, librarian role check
+├── socket/          — chatHandler.js (Socket.io logic)
+└── utils/           — fineCalculator.js, seed.js
+
+frontend/src/
+├── pages/           — Home, Books, BookDetail, Login, Register,
+│                      UserDashboard, AdminDashboard
+├── components/      — Navbar, BookCard, ChatWindow, ProtectedRoute
+├── context/         — AuthContext, ToastContext
+└── utils/           — api.js (axios instance), socket.js (socket singleton)
+```
+
+---
+
+## Key Features
+
+**Borrow workflow** — user sends a request, librarian approves or rejects it. Copies only reduce on approval, not on request. Prevents overselling when multiple users request the same last copy simultaneously.
+
+**Reservation queue** — when a book has zero copies, users join a queue stored on the Book document. On return, the next user is automatically assigned an active transaction without needing to request again.
+
+**Fine system** — node-cron runs every minute and checks all active transactions. Any book past its due date accumulates ₹5 per minute in demo mode (configurable to per-day for production via `FINE_PER_DAY` env variable).
+
+**Recommendations** — every approved borrow updates the user's `favoriteGenre` field to their most borrowed category. The recommendations route uses this to suggest unread books from that genre. Falls back to trending books if the user has no history yet.
+
+**Reader discovery** — the Connect tab shows all registered users. Those who share your favourite genre are highlighted and sorted to the top. You can search by name or email and open a chat with anyone.
+
+**Real-time chat** — built with Socket.io. Each conversation lives in a unique room keyed by both user IDs. Messages are saved to MongoDB so they persist across server restarts. Unread counts update live via personal socket rooms, and read receipts (single tick / double tick) update when the recipient opens the chat.
+
+**Admin panel** — librarians can add and edit books with cover image URLs, approve or reject borrow requests, process returns, and view all transactions and fines in one place.
+
+---
+
+## Run Locally
 ```bash
+# Backend
 cd backend
 npm install
-```
+# add .env file (see below)
+node utils/seed.js    # seeds books and test accounts
+npm start
 
-**Terminal 2 — Frontend:**
-```bash
+# Frontend
 cd frontend
 npm install
-```
-
-### Step 2 — Seed Sample Data
-
-In the backend terminal:
-```bash
-npm run seed
-```
-
-This creates:
-- 15 sample books
-- Librarian account: `librarian@library.com` / `librarian123`
-- User account: `user@library.com` / `user123`
-
-### Step 3 — Start the Application
-
-**Terminal 1 — Start Backend (port 5000):**
-```bash
-cd backend
-npm run dev
-```
-
-**Terminal 2 — Start Frontend (port 3000):**
-```bash
-cd frontend
+# add .env file (see below)
 npm start
 ```
 
-### Step 4 — Open in Browser
+## Environment Variables
 
-Visit: **http://localhost:3000**
-
----
-
-## 🔐 Demo Accounts
-
-| Role | Email | Password |
-|------|-------|----------|
-| 📚 Librarian | librarian@library.com | librarian123 |
-| 👤 User | user@library.com | user123 |
-
----
-
-## 📁 Project Structure
-
+**Backend `.env`**
 ```
-digital-library/
-├── backend/
-│   ├── models/
-│   │   ├── User.js         # User schema
-│   │   ├── Book.js         # Book schema (with text index)
-│   │   └── Transaction.js  # Borrow/return transactions
-│   ├── routes/
-│   │   ├── auth.js         # Register, login, me
-│   │   ├── books.js        # CRUD, search, trending, recommendations
-│   │   ├── transactions.js # Borrow, return, history
-│   │   └── users.js        # User management
-│   ├── middleware/
-│   │   └── auth.js         # JWT + role-based middleware
-│   ├── utils/
-│   │   ├── fineCalculator.js  # Daily cron logic
-│   │   └── seed.js            # Sample data seeder
-│   ├── .env                # Environment variables
-│   └── server.js           # Express app + cron job
-├── frontend/
-│   ├── public/
-│   │   └── index.html
-│   └── src/
-│       ├── components/
-│       │   ├── Navbar.js
-│       │   ├── BookCard.js
-│       │   └── ProtectedRoute.js
-│       ├── context/
-│       │   ├── AuthContext.js
-│       │   └── ToastContext.js
-│       ├── pages/
-│       │   ├── Home.js
-│       │   ├── Login.js
-│       │   ├── Register.js
-│       │   ├── Books.js
-│       │   ├── BookDetail.js
-│       │   ├── UserDashboard.js
-│       │   └── AdminDashboard.js
-│       ├── styles/
-│       │   └── global.css
-│       ├── App.js
-│       └── index.js
-└── README.md
-```
-
----
-
-## 🔌 API Endpoints
-
-### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/register | Register new user |
-| POST | /api/auth/login | Login |
-| GET | /api/auth/me | Get current user |
-
-### Books
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/books | - | Get all books |
-| GET | /api/books/search?q= | - | Search books |
-| GET | /api/books/trending | - | Top borrowed books |
-| GET | /api/books/recommendations | User | Personalized recs |
-| GET | /api/books/:id | - | Single book |
-| GET | /api/books/:id/also-borrowed | User | Collaborative filter |
-| POST | /api/books | Librarian | Add book |
-| PUT | /api/books/:id | Librarian | Update book |
-| DELETE | /api/books/:id | Librarian | Delete book |
-| POST | /api/books/:id/reserve | User | Join queue |
-
-### Transactions
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | /api/transactions/borrow | User | Borrow book |
-| POST | /api/transactions/return | User | Return book |
-| GET | /api/transactions/my | User | My transactions |
-| GET | /api/transactions/all | Librarian | All transactions |
-
-### Users
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | /api/users | Librarian | All users |
-| GET | /api/users/reading-history | User | Reading history |
-
----
-
-## ⚙️ Configuration
-
-Edit `backend/.env`:
-
-```env
+MONGO_URI=your_mongodb_atlas_uri
+JWT_SECRET=your_secret_key
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/digital-library
-JWT_SECRET=your_super_secret_key
-FINE_PER_DAY=5        # Fine in ₹ per day
-BORROW_DAYS=14        # Default borrow duration
+FINE_PER_DAY=5
+```
+
+**Frontend `.env`**
+```
+REACT_APP_API_URL=https://your-render-backend-url.onrender.com
 ```
 
 ---
 
-## 🤖 AI Features (No External APIs)
-
-1. **Smart Recommendations** — Tracks your borrow history, finds your most-read category, suggests new books in that category
-2. **People Also Borrowed** — Finds users who read the same book and recommends what else they read
-3. **Trending Books** — Books ranked by total borrow count
-4. **Reading History** — Complete log of every book you've borrowed
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, React Router v6, Axios |
-| Backend | Node.js, Express.js 4 |
-| Database | MongoDB with Mongoose |
-| Auth | JWT (jsonwebtoken), bcryptjs |
-| Scheduling | node-cron (daily fine calc) |
-| Fonts | Playfair Display + DM Sans |
-
----
-
-Made with 💜 for LibraryOS Hackathon
+Built by [Dhora M](https://github.com/doracsbs015)
